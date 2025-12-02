@@ -11,15 +11,34 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
-
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:5000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setError(result.error || "Backend login failed");
+        return;
+      }
+      localStorage.setItem("token", result.token);
+  
+      navigate("/dashboard");
 
-    if (error) setError(error.message);
-    else navigate("/dashboard");
+    } catch (err) {
+      setError("Network error");
+    }
   };
+  
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">

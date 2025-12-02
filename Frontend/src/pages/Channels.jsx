@@ -4,27 +4,24 @@ import axios from "axios";
 export default function Channels() {
   const [channels, setChannels] = useState([]);
 
-
-  useEffect(() => {
-    fetchChannels();
-  }, []);
-
-  const fetchChannels = async () => {
+  const loadChannels = async () => {
     const res = await axios.get("/channels");
     setChannels(res.data);
   };
 
   const joinChannel = async (id) => {
     await axios.post(`/channels/${id}/join`);
-    fetchChannels(); // refresh
+    loadChannels();
   };
 
   const leaveChannel = async (id) => {
     await axios.post(`/channels/${id}/leave`);
-    fetchChannels(); // refresh
+    loadChannels();
   };
 
-  
+  useEffect(() => {
+    loadChannels();
+  }, []);
 
   return (
     <div className="p-6">

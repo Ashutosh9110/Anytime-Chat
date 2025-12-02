@@ -1,4 +1,4 @@
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../server/supabase.js";
 
 export const sendMessage = async (req, res) => {
   const { content, channel_id } = req.body;

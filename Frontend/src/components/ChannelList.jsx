@@ -5,10 +5,22 @@ export default function ChannelList({ onSelect }) {
   const [channels, setChannels] = useState([]);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/channels").then((res) => {
-      setChannels(res.data);
-    });
+    const token = localStorage.getItem("token");
+  
+    axios
+      .get("http://localhost:5000/channels", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((res) => {
+        setChannels(res.data);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
   }, []);
+  
 
   return (
     <div className="w-60 bg-gray-900 text-white h-screen p-4">

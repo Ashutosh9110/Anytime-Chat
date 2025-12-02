@@ -1,4 +1,4 @@
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../server/supabase.js";
 import jwt from "jsonwebtoken";
 
 export const signup = async (req, res) => {
