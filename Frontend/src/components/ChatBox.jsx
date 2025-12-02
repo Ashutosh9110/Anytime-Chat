@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { supabase } from "../lib/supabase"; // frontend supabase client
+import { supabase } from "../lib/supabase";
 
 export default function ChatBox({ channel }) {
   const [messages, setMessages] = useState([]);
@@ -8,20 +8,50 @@ export default function ChatBox({ channel }) {
 
   useEffect(() => {
     if (!channel) return;
+  
+    let realtime;
+
     loadHistory();
-    subscribeToRealtime();
+    realtime = supabase
+      .channel(`realtime-messages-${channel.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `channel_id=eq.${channel.id}`,
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new]);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(realtime);
+    };
   }, [channel]);
+  
 
   const loadHistory = async () => {
     const res = await axios.get(`/messages/${channel.id}`);
-    setMessages(res.data);
+    console.log("history returned:", res.data);
+
+    // ensure array
+    setMessages(Array.isArray(res.data) ? res.data : []);
   };
 
   const subscribeToRealtime = () => {
-    supabase.channel("realtime-messages")
+    return supabase
+      .channel(`messages-${channel.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", table: "messages_realtime", filter: `channel_id=eq.${channel.id}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages_realtime",
+          filter: `channel_id=eq.${channel.id}`,
+        },
         (payload) => {
           setMessages((prev) => [...prev, payload.new]);
         }
@@ -36,7 +66,6 @@ export default function ChatBox({ channel }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* message list */}
       <div className="flex-1 overflow-y-auto bg-white p-4 rounded shadow">
         {messages.map((msg, idx) => (
           <div key={idx} className="mb-2">
@@ -46,7 +75,6 @@ export default function ChatBox({ channel }) {
         ))}
       </div>
 
-      {/* send bar */}
       <div className="mt-4 flex gap-2">
         <input
           className="flex-1 border p-2 rounded"

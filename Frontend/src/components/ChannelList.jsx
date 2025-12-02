@@ -1,24 +1,52 @@
 import React, { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase"; 
 import API from "../api";
 
 export default function ChannelList({ onSelect }) {
   const [channels, setChannels] = useState([]);
 
-  useEffect(() => {
+  const fetchChannels = () => {
     API.get("/channels")
       .then((res) => setChannels(res.data))
       .catch((err) => console.log(err));
+  };
+
+  // Load channels initially
+  useEffect(() => {
+    fetchChannels();
   }, []);
 
+  // Supabase realtime listeners
   useEffect(() => {
-    API.get("/channels")
-      .then((res) => {
-        console.log("Channels response:", res.data);
-        setChannels(res.data);
-      })
-      .catch((err) => console.log("Channels ERROR:", err));
+    const chListener = supabase
+      .channel("channels-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "channels" },
+        (payload) => {
+          console.log("Channel changed:", payload);
+          fetchChannels();
+        }
+      )
+      .subscribe();
+
+    const memberListener = supabase
+      .channel("member-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "channel_members" },
+        (payload) => {
+          console.log("Members changed:", payload);
+          fetchChannels();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(chListener);
+      supabase.removeChannel(memberListener);
+    };
   }, []);
-  
 
   return (
     <div className="w-60 bg-gray-900 text-white h-screen p-4">
@@ -36,5 +64,6 @@ export default function ChannelList({ onSelect }) {
         ))}
       </ul>
     </div>
+    
   );
 }

@@ -4,10 +4,10 @@ import { getChannels, joinChannel, leaveChannel, listMembers, createChannel } fr
 
 const router = express.Router();
 
-router.get("/channels", supabaseAuth, getChannels);
-router.post("/channels", supabaseAuth, createChannel);
-router.post("/channels/:id/join", supabaseAuth, joinChannel);
-router.post("/channels/:id/leave", supabaseAuth, leaveChannel);
-router.get("/channels/:id/members", supabaseAuth, listMembers);
+router.get("/", supabaseAuth, getChannels);
+router.post("/", supabaseAuth, createChannel);
+router.post("/:id/join", supabaseAuth, joinChannel);
+router.post("/:id/leave", supabaseAuth, leaveChannel);
+router.get("/:id/members", supabaseAuth, listMembers);
 
 export default router;
