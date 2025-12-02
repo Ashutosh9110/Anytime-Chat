@@ -11,33 +11,23 @@ export default function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+  
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+  
     if (error) {
       setError(error.message);
       return;
     }
-    try {
-      const res = await fetch("http://localhost:5000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const result = await res.json();
-      if (!res.ok) {
-        setError(result.error || "Backend login failed");
-        return;
-      }
-      localStorage.setItem("token", result.token);
+    const token = data.session.access_token; // SUPABASE ACCESS TOKEN
   
-      navigate("/dashboard");
-
-    } catch (err) {
-      setError("Network error");
-    }
+    localStorage.setItem("token", token);
+  
+    navigate("/dashboard");
   };
+  
   
 
   return (
@@ -76,7 +66,7 @@ export default function Login() {
             <p className="text-red-500 text-sm text-center">{error}</p>
           )}
 
-          <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition">
+          <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition cursor-pointer">
             Login
           </button>
         </form>

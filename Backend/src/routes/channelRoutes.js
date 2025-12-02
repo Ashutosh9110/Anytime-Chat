@@ -1,12 +1,12 @@
 import express from "express";
-import { auth } from "../middleware/auth.js";
+import { supabaseAuth } from "../middleware/supabaseAuth.js";
 import { getChannels, joinChannel, leaveChannel, listMembers} from "../controllers/channelController.js";
 
 const router = express.Router();
 
-router.get("/", auth, getChannels);
-router.post("/:id/join", auth, joinChannel);
-router.post("/:id/leave", auth, leaveChannel);
-router.get("/:id/members", auth, listMembers);
+router.get("/", supabaseAuth, getChannels);
+router.post("/:id/join", supabaseAuth, joinChannel);
+router.post("/:id/leave", supabaseAuth, leaveChannel);
+router.get("/:id/members", supabaseAuth, listMembers);
 
 export default router;

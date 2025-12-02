@@ -1,24 +1,22 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import API from "../api";
 
 export default function ChannelList({ onSelect }) {
   const [channels, setChannels] = useState([]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-  
-    axios
-      .get("http://localhost:5000/channels", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+    API.get("/channels")
+      .then((res) => setChannels(res.data))
+      .catch((err) => console.log(err));
+  }, []);
+
+  useEffect(() => {
+    API.get("/channels")
       .then((res) => {
+        console.log("Channels response:", res.data);
         setChannels(res.data);
       })
-      .catch((err) => {
-        console.log(err);
-      });
+      .catch((err) => console.log("Channels ERROR:", err));
   }, []);
   
 
