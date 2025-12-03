@@ -14,11 +14,9 @@ export default function Signup() {
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signUp({ email, password, name });
-
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { name: name }}});
     if (error) setError(error.message);
     else alert("Check your email for verification!");
-
     setLoading(false);
   };
 
@@ -72,7 +70,7 @@ export default function Signup() {
 
           <button
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition"
+            className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition cursor-pointer"
           >
             {loading ? "Creating account..." : "Sign Up"}
           </button>

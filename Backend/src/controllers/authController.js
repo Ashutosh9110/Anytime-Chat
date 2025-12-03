@@ -1,22 +1,13 @@
-import { supabase } from "../server/supabase.js";
-
+import { supabase } from "../server/supabase.js"
 
 export const signup = async (req, res) => {
-  const { email, password, name } = req.body;
+  const { email, password, name } = req.body
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { name }}});
-  if (error) return res.status(400).json(error);
-  
-  if (data.user) {
-    await supabase.from("profiles").insert({
-      id: data.user.id,
-      name,
-      email,
-    });
-  }
+    options: { data: { name }}})
+  if (error) return res.status(400).json(error)
   res.json(data);
 };
 

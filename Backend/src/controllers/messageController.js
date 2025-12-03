@@ -1,41 +1,53 @@
 import { supabase } from "../server/supabase.js";
 
 export const sendMessage = async (req, res) => {
-  const { content, channel_id } = req.body;
-  const user_id = req.user.id;
-  // console.log("REQ USER:", req.user);
-  // console.log("REQ BODY:", req.body);
-  // console.log("INSERTING MESSAGE:", {
-  //   user_id: req.user.id,
-  //   channel_id: req.body.channel_id,
-  //   content: req.body.content,
-  // });
-  if (!content || !channel_id) {
+  const { content, channel_id, user_id } = req.body;
+  if (!content || !channel_id || !user_id) {
     return res.status(400).json({ error: "Missing fields" });
   }
+  // console.log("REQ USER:", req.user);
+  // console.log("REQ BODY:", req.body);
 
   const { data, error } = await supabase
     .from("messages")
     .insert({ user_id, channel_id, content })
-    .select()
+    .select("id, content, created_at, user_id")
     .single();
     console.log("MESSAGE ERROR:", error);
 
   if (error) return res.status(500).json({ error: error.message });
 
-  res.json(data);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name,email")
+    .eq("id", user_id)
+    .single();
+
+  res.json({ ...data, profiles: profile || null });
 };
 
 export const getMessages = async (req, res) => {
   const channel_id = req.params.id;
-
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    .select("id, content, created_at, user_id, profiles(name,email)")
     .eq("channel_id", channel_id)
     .order("created_at", { ascending: true });
-    // console.log("MESSAGES FETCHED:", data);
-  if (error) return res.status(500).json({ error: error.message });
-
+  if (error) {
+    console.error("GET MESSAGES ERROR:", error);
+    const { data: fallback, error: fallbackErr } = await supabase
+      .from("messages")
+      .select("id, content, created_at, user_id")
+      .eq("channel_id", channel_id)
+      .order("created_at", { ascending: true });
+    if (fallbackErr) return res.status(500).json({ error: fallbackErr.message });
+    return res.json(
+      fallback.map((m) => ({
+        ...m,
+        profiles: null,
+      }))
+    );
+  }
   res.json(data);
 };
+
