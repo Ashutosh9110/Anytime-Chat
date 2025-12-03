@@ -16,7 +16,7 @@ export default function Signup() {
 
     const { error } = await supabase.auth.signUp({ email, password, options: { data: { name: name }}});
     if (error) setError(error.message);
-    else alert("Check your email for verification!");
+    // else alert("Check your email for verification!");
     setLoading(false);
   };
 
