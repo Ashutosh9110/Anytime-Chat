@@ -9,56 +9,42 @@ export default function ChatBox({ channel }) {
 
   useEffect(() => {
     if (!channel) return;
-  
-    let realtime;
 
-    loadHistory();
-    realtime = supabase
-      .channel(`realtime-messages-${channel.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `channel_id=eq.${channel.id}`,
-        },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
-        }
-      )
-      .subscribe();
+    let subscription;
+    const start = async () => {
+      await loadHistory(); // load messages FIRST
+      subscription = supabase
+        .channel(`realtime-messages-${channel.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `channel_id=eq.${channel.id}`,
+          },
+          (payload) => {
+            setMessages((prev) => [...prev, payload.new]);
+          }
+        )
+        .subscribe();
+    };
+    start();
     return () => {
-      supabase.removeChannel(realtime);
+      supabase.removeChannel(subscription);
     };
   }, [channel]);
+  
   
 
   const loadHistory = async () => {
     const res = await API.get(`/messages/${channel.id}`);
-    console.log("history returned:", res.data);
+    // console.log("history returned:", res.data);
 
     // ensure array
     setMessages(Array.isArray(res.data) ? res.data : []);
   };
 
-  const subscribeToRealtime = () => {
-    return supabase
-      .channel(`messages-${channel.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages_realtime",
-          filter: `channel_id=eq.${channel.id}`,
-        },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new]);
-        }
-      )
-      .subscribe();
-  };
 
   const sendMessage = async () => {
     if (!text.trim()) return;

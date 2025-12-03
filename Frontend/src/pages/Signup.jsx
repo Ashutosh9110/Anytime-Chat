@@ -7,13 +7,14 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [name, setName] = useState("");
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({ email, password, name });
 
     if (error) setError(error.message);
     else alert("Check your email for verification!");
@@ -29,6 +30,18 @@ export default function Signup() {
         </h2>
 
         <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">Name</label>
+              <input
+                type="text"
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+          </div>
+
           <div>
             <label className="block text-sm text-gray-600 mb-1">Email</label>
             <input
