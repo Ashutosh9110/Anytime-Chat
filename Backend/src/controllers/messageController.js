@@ -28,26 +28,23 @@ export const sendMessage = async (req, res) => {
 
 export const getMessages = async (req, res) => {
   const channel_id = req.params.id;
-  const { data, error } = await supabase
+  const limit = parseInt(req.query.limit) || 20;
+  const before = req.query.before;
+  let query = supabase
     .from("messages")
     .select("id, content, created_at, user_id, profiles(name,email)")
     .eq("channel_id", channel_id)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (before) {
+    query = query.lt("created_at", before);
+  }
+  const { data, error } = await query;
   if (error) {
     console.error("GET MESSAGES ERROR:", error);
-    const { data: fallback, error: fallbackErr } = await supabase
-      .from("messages")
-      .select("id, content, created_at, user_id")
-      .eq("channel_id", channel_id)
-      .order("created_at", { ascending: true });
-    if (fallbackErr) return res.status(500).json({ error: fallbackErr.message });
-    return res.json(
-      fallback.map((m) => ({
-        ...m,
-        profiles: null,
-      }))
-    );
+    return res.status(500).json({ error: error.message });
   }
-  res.json(data);
+  res.json(data.reverse());
 };
+
 

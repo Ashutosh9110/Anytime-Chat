@@ -47,7 +47,6 @@ export default function Dashboard() {
     <div className="flex h-screen bg-gray-100">
 
       <aside className="w-64 bg-white shadow-lg flex flex-col border-r">
-        {/* User Info Box */}
         <div className="p-4 border-b flex items-center gap-3 bg-gray-50">
           <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
             {currentUser?.email?.charAt(0).toUpperCase()}
@@ -63,12 +62,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Channel List */}
         <div className="flex-1 overflow-y-auto">
           <ChannelList onSelect={(ch) => setActiveChannel(ch)} />
         </div>
 
-        {/* Logout Button */}
         <div className="p-4 border-t">
           <LogoutButton />
         </div>
@@ -78,7 +75,6 @@ export default function Dashboard() {
       <main className="flex-1 p-6">
         <div className="bg-white shadow-md rounded-xl p-5 h-full flex flex-col">
 
-          {/* Header */}
           <div className="flex justify-between items-center mb-4 border-b pb-3">
             <h1 className="text-2xl font-bold text-gray-800">
               {activeChannel ? `#${activeChannel.name}` : "📭 Select a Channel"}
