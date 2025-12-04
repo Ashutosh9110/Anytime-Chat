@@ -36,7 +36,6 @@ export const getChannels = async (req, res) => {
 
 
 
-
 export const createChannel = async (req, res) => {
   try {
     const { name, is_public } = req.body;

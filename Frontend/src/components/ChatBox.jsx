@@ -9,6 +9,36 @@ export default function ChatBox({ channel }) {
   // simple in-memory cache: user_id -> { name, email }
   const profileCache = useRef(new Map());
   const subscriptionRef = useRef(null);
+  const presenceRef = useRef(null);
+
+
+  
+  useEffect(() => {
+    const initPresence = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const p = supabase.channel(`typing-${channel.id}`, {
+        config: { presence: { key: user.id } }
+      });
+      await p.subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await p.track({ typing: false });
+        }
+      });
+      presenceRef.current = p;
+    };
+    initPresence();
+    return () => {
+      if (presenceRef.current) {
+        supabase.removeChannel(presenceRef.current);
+        presenceRef.current = null;
+      }
+    };
+  }, [channel.id]);
+  
+
 
   useEffect(() => {
     if (!channel) return;
@@ -23,7 +53,6 @@ export default function ChatBox({ channel }) {
 
     const start = async () => {
       try {
-        // 1) load history first
         await loadHistory();
 
         // 2) subscribe to realtime inserts
@@ -121,20 +150,16 @@ export default function ChatBox({ channel }) {
     }
   };
 
-  // optimistic send: add to UI immediately, still send to backend
   const sendMessage = async () => {
     if (!text.trim()) return;
 
-    // get logged in user
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // fallback profile info from cache or user.email
     const cached = profileCache.current.get(user.id) || { email: user.email };
     profileCache.current.set(user.id, cached);
 
-    // optimistic message
     const optimistic = {
       id: `temp-${Date.now()}`,
       content: text,
@@ -147,7 +172,6 @@ export default function ChatBox({ channel }) {
     setText("");
 
     try {
-      // backend will insert and return the real row (with id + created_at)
       const res = await API.post("/messages", {
         content: optimistic.content,
         channel_id: channel.id,
@@ -155,7 +179,6 @@ export default function ChatBox({ channel }) {
       });
 
       const saved = res.data;
-      // replace optimistic message with saved one
       setMessages((prev) =>
         prev.map((m) => (m.id === optimistic.id ? {
           id: saved.id,
@@ -172,7 +195,6 @@ export default function ChatBox({ channel }) {
     }
   };
 
-  // helper: pretty time
   const formatTime = (iso) => {
     if (!iso) return "";
     try {
@@ -203,8 +225,21 @@ export default function ChatBox({ channel }) {
         <input
           className="flex-1 border p-2 rounded"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+          
+            if (presenceRef.current) {
+              presenceRef.current.track({ typing: true });
+          
+              setTimeout(() => {
+                presenceRef.current.track({ typing: false });
+              }, 2000);
+            }
+          }}
+          
+          
           placeholder="Type a message..."
+          
         />
         <button onClick={sendMessage} className="bg-blue-600 text-white px-4 py-2 rounded">
           Send
