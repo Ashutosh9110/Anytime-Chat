@@ -6,15 +6,12 @@ export default function ChatBox({ channel }) {
   const [messages, setMessages] = useState([])
   const [text, setText] = useState("")
   const [typingUsers, setTypingUsers] = useState([])
-  const [hasMore, setHasMore] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [page, setPage] = useState(1)
 
   const profileCache = useRef(new Map())
   const realtimeRef = useRef(null)
   const presenceRef = useRef(null)
   const scrollRef = useRef(null)
-
+  const previousChannelId = useRef(null)
 
   useEffect(() => {
     if (!channel) return
@@ -22,7 +19,6 @@ export default function ChatBox({ channel }) {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-
       presenceChannel = supabase.channel(`presence-typing-${channel.id}`, {
         config: { presence: { key: user.id } },
       })
@@ -60,123 +56,6 @@ export default function ChatBox({ channel }) {
     }
   }, [channel?.id])
 
-  useEffect(() => {
-    if (!channel) return
-
-    if (realtimeRef.current) {
-      supabase.removeChannel(realtimeRef.current)
-      realtimeRef.current = null
-    }
-    const start = async () => {
-      await loadHistory()
-      const sub = supabase
-        .channel(`rt-messages-${channel.id}`)
-        .on(
-          "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages" },
-          (payload) => {
-            if (payload.new.channel_id === channel.id) {
-              handleIncomingMessage(payload)
-            }
-          }
-        )        
-        .subscribe()
-      realtimeRef.current = sub
-    }
-    start()
-    return () => {
-      if (realtimeRef.current) {
-        supabase.removeChannel(realtimeRef.current)
-        realtimeRef.current = null
-      }
-    }
-  }, [channel?.id])
-
-  const handleIncomingMessage = (payload) => {
-    const msg = payload.new
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === msg.id)) return prev
-      return [...prev, formatMessage(msg)]
-    })
-    setTimeout(() => {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }, 10)
-  }
-
-  const loadHistory = async () => {
-    try {
-      const res = await API.get(`/messages/${channel.id}?page=1&limit=30`);
-      const items = res.data;
-      if (items.length < 30) setHasMore(false);
-      setPage(1);
-      setMessages(items.map(formatMessage));
-    } catch (err) {
-      console.error("History error:", err);
-    }
-  };
-  
-  const loadOlder = async () => {
-    if (!hasMore || loadingMore) return;
-    setLoadingMore(true);
-    const nextPage = page + 1;
-    try {
-      const res = await API.get(`/messages/${channel.id}?page=${nextPage}&limit=30`);
-      const older = res.data;
-      if (older.length < 30) setHasMore(false);
-      setMessages(prev => [...older.map(formatMessage), ...prev]);
-      setPage(nextPage);
-    } catch (err) {
-      console.error("loadOlder error", err);
-    }
-    setLoadingMore(false);
-  };
-  
-  
-
-  const formatMessage = (m) => ({
-    id: m.id,
-    content: m.content,
-    user_id: m.user_id,
-    created_at: m.created_at,
-    profiles: m.profiles || profileCache.current.get(m.user_id),
-  })
-
-  const sendMessage = async () => {
-    if (!text.trim()) return
-    const { data: { user } } = await supabase.auth.getUser()
-    const cached = profileCache.current.get(user.id) || { email: user.email }
-    profileCache.current.set(user.id, cached)
-    const optimistic = {
-      id: `temp-${Date.now()}`,
-      content: text,
-      user_id: user.id,
-      created_at: new Date().toISOString(),
-      profiles: cached,
-      pending: true,
-    }
-    setMessages((prev) => [...prev, optimistic])
-    setText("")
-    setTimeout(() => {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }, 20)
-
-    try {
-      const res = await API.post("/messages", {
-        content: optimistic.content,
-        channel_id: channel.id,
-        user_id: user.id,
-      })
-      const saved = res.data
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === optimistic.id ? formatMessage(saved) : m
-        )
-      )
-    } catch (err) {
-      console.error("send failed", err)
-    }
-  }
-
   const handleTyping = (val) => {
     setText(val)
     if (!presenceRef.current) return
@@ -186,33 +65,155 @@ export default function ChatBox({ channel }) {
       presenceRef.current.track({ typing: false })
     }, 1500)
   }
+
+  useEffect(() => {
+    if (!channel?.id) return
+    if (previousChannelId.current !== channel.id) {
+      previousChannelId.current = channel.id
+      loadAllMessages()
+      setupRealtime()
+    }
+  }, [channel?.id])
+
+  const loadAllMessages = async () => {
+    try {
+      const res = await API.get(`/messages/${channel.id}`)
+      const items = res.data
+
+      // FIX 1: Hydrate cache with existing history
+      items.forEach(item => {
+        if (item.profiles && item.user_id) {
+            profileCache.current.set(item.user_id, item.profiles)
+        }
+      })
+      setMessages(items.map(formatMessage))
+
+      setTimeout(() => {
+        if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+      }, 50)
+    } catch (err) {
+      console.error("History load failed:", err)
+    }
+  }
+  const setupRealtime = () => {
+    if (realtimeRef.current)
+      supabase.removeChannel(realtimeRef.current)
+
+    const subscription = supabase
+      .channel(`messages-${channel.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `channel_id=eq.${channel.id}`,
+        },
+        (payload) => handleIncomingMessage(payload)
+      )
+      .subscribe()
+
+    realtimeRef.current = subscription
+  }
+
+  const handleIncomingMessage = async (payload) => {
+    const rawMsg = payload.new
+    let userProfile = profileCache.current.get(rawMsg.user_id)
+
+    // If we don't know who this is yet, fetch them from Supabase
+    if (!userProfile) {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('name, email') // Adjust columns based on your DB
+          .eq('id', rawMsg.user_id)
+          .single()
+        
+        if (data) {
+          userProfile = data
+          profileCache.current.set(rawMsg.user_id, data)
+        }
+      } catch (error) {
+        console.error("Error fetching incoming user profile", error)
+      }
+    }
+
+    const newMsg = {
+        ...formatMessage(rawMsg),
+        profiles: userProfile
+    }
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === newMsg.id)) return prev
+      return [...prev, newMsg]
+    })
+
+    setTimeout(() => {
+      if(scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }, 50)
+  }
+
+  const formatMessage = (m) => ({
+    id: m.id,
+    content: m.content,
+    user_id: m.user_id,
+    created_at: m.created_at,
+    // Try to grab from object first, then cache
+    profiles: m.profiles || profileCache.current.get(m.user_id),
+  })
+  
   const fmt = (iso) => new Date(iso).toLocaleTimeString()
+  const sendMessage = async () => {
+    if (!text.trim()) return
+
+    const { data: { user } } = await supabase.auth.getUser()
+    const cached = profileCache.current.get(user.id) || { name: user.user_metadata?.name, email: user.email }
+    profileCache.current.set(user.id, cached)
+
+    const optimistic = {
+      id: `temp-${Date.now()}`,
+      content: text,
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      profiles: cached,
+      pending: true,
+    }
+
+    setMessages((prev) => [...prev, optimistic])
+    setText("")
+
+    setTimeout(() => {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }, 30)
+
+    try {
+      const res = await API.post("/messages", {
+        content: optimistic.content,
+        channel_id: channel.id,
+        user_id: user.id,
+      })
+
+      const saved = formatMessage(res.data)
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimistic.id ? saved : m))
+      )
+    } catch (err) {
+      console.error("send failed", err)
+    }
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-150px)] overflow-hidden">
-
-        <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto bg-white p-4 rounded border min-h-0"
-          onScroll={(e) => {
-            {hasMore && (
-              <button
-                className="text-blue-600 underline mb-3"
-                disabled={loadingMore}
-                onClick={loadOlder}
-              >
-                {loadingMore ? "Loading..." : "Load older messages"}
-              </button>
-            )}
-          }}
-        >
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto bg-white p-4 rounded border min-h-0"
+      >
         {messages.map((msg) => (
           <div key={msg.id} className="mb-3">
             <span className="font-semibold">
-              {msg.profiles?.name || msg.profiles?.email}
+              {msg.profiles?.name || msg.profiles?.email || "Unknown User"}
             </span>
             : {msg.content}
-
             <div className="text-xs text-gray-500">
               {fmt(msg.created_at)}
               {msg.pending && " (sending...) "}

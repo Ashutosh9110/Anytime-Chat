@@ -10,7 +10,7 @@ export default function WelcomePage() {
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
       >
-        <source src="https://res.cloudinary.com/deqp37rqp/video/upload/v1764918240/welcomepage_p1fmwv.mp4" type="video/mp4" />
+        <source src="https://res.cloudinary.com/deqp37rqp/video/upload/v1763463685/otp6_drcqgv.mp4" type="video/mp4" />
       </video>
 
       <div className="absolute inset-0 bg-black/50"></div>

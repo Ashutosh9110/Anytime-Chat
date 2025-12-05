@@ -11,7 +11,7 @@ export const sendMessage = async (req, res) => {
   const { data, error } = await supabase
     .from("messages")
     .insert({ user_id, channel_id, content })
-    .select("id, content, created_at, user_id")
+    .select("id, content, created_at, user_id, profiles!messages_user_id_fkey(name,email)")
     .single();
     console.log("MESSAGE ERROR:", error);
 
@@ -35,10 +35,10 @@ export const getMessages = async (req, res) => {
 
   const { data, error } = await supabase
     .from("messages")
-    .select("id, content, created_at, user_id, profiles(name,email)")
+    .select("id, content, created_at, user_id, profiles!messages_user_id_fkey(name,email)")
     .eq("channel_id", channel_id)
     .order("created_at", { ascending: true })
-    .range(offset, offset + limit - 1);
+    // .range(offset, offset + limit - 1);
 
   if (error) {
     console.error("GET MESSAGES ERROR:", error);

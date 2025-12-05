@@ -37,7 +37,7 @@ export default function Signup() {
         loop
         muted
         playsInline
-        src="https://res.cloudinary.com/djm65usjg/video/upload/v1763281058/signup2_eaho2j.mp4"
+        src="https://res.cloudinary.com/djm65usjg/video/upload/v1763273965/5_nijvvw.mp4"
       />
 
       {/* Back Button */}
