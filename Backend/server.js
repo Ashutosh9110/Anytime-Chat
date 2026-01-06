@@ -30,12 +30,21 @@ app.use("/channels", supabaseAuth, channelRoutes);
 app.use("/messages", supabaseAuth, messageRoutes);
 
 app.get("/cron/channels", async (req, res) => {
-  const { data, error } = await supabase
-    .from("channels")
-    .select("id");
-  if (error) return res.status(500).json([]);
-  res.json({ ok: true });
+  try {
+    const { error } = await supabase.from("channels").select("id");
+
+    if (error) {
+      console.error("Cron DB ping failed:", error);
+      return res.status(503).json({ ok: false });
+    }
+
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error("Cron route error:", err);
+    res.status(500).json({ ok: false });
+  }
 });
+
 
 
 const PORT = process.env.PORT || 5000;
